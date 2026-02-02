@@ -803,6 +803,17 @@ window.addEventListener('load', function() {
                 this.droneMarkers3D.set(id, sprite);
             }
         }
+
+        updateStatsPanel() {
+            const droneCountEl = document.getElementById('drone-count');
+            if (droneCountEl) {
+                droneCountEl.textContent = String(this.droneCollection.size);
+            }
+            const flightCountEl = document.getElementById('flight-count');
+            if (flightCountEl) {
+                flightCountEl.textContent = String(this.flightCodeSet.size);
+            }
+        }
         
         flightRecordCache = new Map(); // 新增：缓存架次主表信息
 

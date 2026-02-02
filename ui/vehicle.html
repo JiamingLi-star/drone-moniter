@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>新石器无人车运营大屏</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://webapi.amap.com/maps?v=2.0&key=0ab0f0b45664f7b5d7f3030df28d12f0&plugin=AMap.Scale,AMap.ToolBar,AMap.MapType"></script>
+  <script src="js/jquery.min.js"></script>
+  <script src="js/echarts.min.js"></script>
+  <link rel="stylesheet" href="css/vehicle.css">
+</head>
+<body class="vehicle-body">
+  <header class="vehicle-header">
+    <div class="header-title">自动驾驶物流大脑</div>
+    <div class="header-actions">
+      <span id="last-updated">数据更新时间：--</span>
+      <a class="header-link" href="vehicle-export.html">数据导出</a>
+    </div>
+  </header>
+
+  <main class="vehicle-main">
+    <section class="vehicle-col vehicle-left">
+      <div class="panel">
+        <div class="panel-title">车辆总览</div>
+        <div class="summary-grid">
+          <div class="summary-item">
+            <div class="summary-label">车辆总数</div>
+            <div class="summary-value" id="total-vehicles">0</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">在线车辆</div>
+            <div class="summary-value highlight" id="online-vehicles">0</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">空闲车辆</div>
+            <div class="summary-value" id="idle-vehicles">0</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">充电车辆</div>
+            <div class="summary-value" id="charging-vehicles">0</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">异常车辆</div>
+            <div class="summary-value warn" id="fault-vehicles">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">车辆列表</div>
+        <div class="vehicle-list" id="vehicle-list"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">网格车辆分布</div>
+        <div class="park-list" id="park-list"></div>
+      </div>
+    </section>
+
+    <section class="vehicle-col vehicle-center">
+      <div class="panel map-panel">
+        <div class="panel-title">实时车辆位置</div>
+        <div id="vehicle-map"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">当前车辆信息</div>
+        <div class="detail-grid">
+          <div><span>VIN</span><strong id="detail-vin">--</strong></div>
+          <div><span>驾驶模式</span><strong id="detail-mode">--</strong></div>
+          <div><span>速度</span><strong id="detail-speed">--</strong></div>
+          <div><span>电量</span><strong id="detail-battery">--</strong></div>
+          <div><span>位置</span><strong id="detail-pos">--</strong></div>
+          <div><span>更新时间</span><strong id="detail-time">--</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="vehicle-col vehicle-right">
+      <div class="panel">
+        <div class="panel-title">平均状态</div>
+        <div class="summary-grid">
+          <div class="summary-item">
+            <div class="summary-label">平均速度</div>
+            <div class="summary-value" id="avg-speed">0</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">平均电量</div>
+            <div class="summary-value" id="avg-battery">0</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">总里程</div>
+            <div class="summary-value" id="total-mileage">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel chart-panel">
+        <div class="panel-title">速度趋势</div>
+        <div id="speed-chart"></div>
+      </div>
+
+      <div class="panel chart-panel">
+        <div class="panel-title">电量趋势</div>
+        <div id="battery-chart"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/vehicle.js"></script>
+</body>
+</html>

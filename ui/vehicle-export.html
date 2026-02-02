@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>新石器无人车数据导出</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; padding: 20px; background: #f7f7f8; }
+    .card { background: #fff; padding: 18px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); max-width: 720px; margin: 0 auto }
+    .row { display:flex; gap:12px; margin-bottom:12px; align-items:center }
+    label { width:110px; color:#333 }
+    input[type=datetime-local] { flex:1; padding:8px; border:1px solid #ddd; border-radius:4px }
+    button { padding:10px 14px; border:0; background:#007bff; color:#fff; border-radius:4px; cursor:pointer }
+    button.secondary { background:#6c757d }
+    pre { background:#f1f1f3; padding:12px; border-radius:4px; max-height:240px; overflow:auto }
+    .actions { display:flex; gap:8px }
+    .notice { font-size:13px; color:#666 }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>新石器无人车数据导出</h2>
+    <p class="notice">选择时间范围后导出 Excel，接口返回文件流并自动下载。</p>
+
+    <div class="row">
+      <label for="start">开始时间</label>
+      <input id="start" type="datetime-local">
+    </div>
+    <div class="row">
+      <label for="end">结束时间</label>
+      <input id="end" type="datetime-local">
+    </div>
+
+    <div class="actions">
+      <button id="btnExport">导出 Excel</button>
+      <button id="btnClear" class="secondary">清空</button>
+    </div>
+
+    <h3>日志</h3>
+    <pre id="log">未执行任务。</pre>
+  </div>
+
+  <script>
+    const logEl = document.getElementById('log')
+    const btnExport = document.getElementById('btnExport')
+    const btnClear = document.getElementById('btnClear')
+
+    function appendLog(s){
+      const now = new Date().toLocaleString()
+      logEl.textContent = `[${now}] ` + s + '\n' + logEl.textContent
+    }
+
+    function readForm(){
+      const start = document.getElementById('start').value
+      const end = document.getElementById('end').value
+      const startIso = start ? new Date(start).toISOString() : ''
+      const endIso = end ? new Date(end).toISOString() : ''
+      return { startIso, endIso }
+    }
+
+    btnExport.addEventListener('click', async ()=>{
+      const { startIso, endIso } = readForm()
+      if(!startIso || !endIso){
+        alert('请填写开始时间与结束时间')
+        return
+      }
+      appendLog('开始导出...')
+      try{
+        const resp = await fetch('/vehicle/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ startTime: startIso, endTime: endIso })
+        })
+        if(!resp.ok){
+          const text = await resp.text()
+          appendLog('导出失败: ' + text)
+          return
+        }
+        const blob = await resp.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'vehicle_records.xlsx'
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        window.URL.revokeObjectURL(url)
+        appendLog('导出完成，文件已下载')
+      }catch(err){
+        appendLog('导出异常: ' + err.message)
+      }
+    })
+
+    btnClear.addEventListener('click', ()=>{ 
+      document.getElementById('start').value=''
+      document.getElementById('end').value=''
+      logEl.textContent='未执行任务。'
+    })
+  </script>
+</body>
+</html>

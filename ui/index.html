@@ -19,12 +19,13 @@
 <!-- 轮播swiper文件 -->
 <link rel="stylesheet" type="text/css" href="css/swiper.min.css">
 <script src="js/swiper.min.js"></script>
+<script src="js/ezuikit.js"></script>
 <!--界面样式-->
 <script src="js/visual.js"></script>
 <script src="js/china.js"></script>
 <script src="js/droneMap.js"></script>
 <!-- <script src="js/chartMap.js"></script> -->
-<link rel="stylesheet" type="text/css" href="css/visual.css">
+<link rel="stylesheet" type="text/css" href="css/visual.css?v=2024012012">
 
 <!-- 样式：控制统计类型（年/月/日）显示与高亮（中文注释） -->
 <style>
@@ -244,14 +245,14 @@
 					<img src="images/ksh33.png">
 				</div>
 				<div class="panel-video" id="vehicle-video-1">
-					<video id="vehicle-demo-video-1" class="vehicle-demo-video" src="./test.mp4" autoplay muted loop playsinline controls="false"></video>
+					<div id="playWind-1" class="vehicle-demo-video"></div>
 				</div>
 				<div class="visual_title">
 					<span>中大起降场</span>
 					<img src="images/ksh33.png">
 				</div>
 				<div class="panel-video" id="vehicle-video-2">
-					<video id="vehicle-demo-video-2" class="vehicle-demo-video" src="./test.mp4" autoplay muted loop playsinline controls="false"></video>
+					<div id="playWind-2" class="vehicle-demo-video"></div>
 				</div>
 			</div>
 			<div class="visual_box">
@@ -260,7 +261,7 @@
 					<img src="images/ksh33.png">
 				</div>
 				<div class="record_box" id="flight-records-list"></div>
-				<div id="flight-records-pagination"></div>
+				<div id="flight-records-pagination" class="record-pagination"></div>
 			</div>
 		</div>
 		<div class="clear"></div>
@@ -723,7 +724,7 @@
 			const totalPages = Math.ceil(total / flightRecordsPageSize);
 			let html = '';
 			html += `<button ${flightRecordsPage === 1 ? 'disabled' : ''} id="flight-records-prev">上一页</button>`;
-			html += ` <span style="color: #fff;">第 ${flightRecordsPage} / ${totalPages} 页</span> `;
+			html += `<span>第 ${flightRecordsPage} / ${totalPages} 页</span>`;
 			html += `<button ${flightRecordsPage === totalPages ? 'disabled' : ''} id="flight-records-next">下一页</button>`;
 			$pg.html(html);
 
@@ -1087,6 +1088,148 @@
 			}
 			return (totalWh / 1000.0).toFixed(4); // kWh，保留4位小数
 		}
+
+		(function() {
+			var CDN_RE = /^https?:\/\/openstatic\.ys7\.com\/ezuikit_js\/[^/]+\/ezuikit_static\/(.*)$/i;
+			var LOCAL_BASE = new URL('./js/ezuikit_static/', location.href).toString();
+
+			function rewriteUrl(url) {
+				if (!url) return url;
+				var s = typeof url === 'string' ? url : (url.url || url.href || String(url));
+				var m = s.match(CDN_RE);
+				return m && m[1] ? LOCAL_BASE + m[1] : url;
+			}
+
+			if (window.fetch) {
+				var _fetch = window.fetch.bind(window);
+				window.fetch = function(input, init) {
+					return _fetch(rewriteUrl(input), init);
+				};
+			}
+
+			if (window.XMLHttpRequest && window.XMLHttpRequest.prototype && window.XMLHttpRequest.prototype.open) {
+				var _open = window.XMLHttpRequest.prototype.open;
+				window.XMLHttpRequest.prototype.open = function(method, url) {
+					var args = Array.prototype.slice.call(arguments);
+					args[1] = rewriteUrl(url);
+					return _open.apply(this, args);
+				};
+			}
+
+			var _appendChild = Element.prototype.appendChild;
+			Element.prototype.appendChild = function(child) {
+				if (child && child.tagName && child.tagName.toUpperCase() === 'SCRIPT' && child.src) {
+					child.src = rewriteUrl(child.src);
+				}
+				return _appendChild.call(this, child);
+			};
+
+			if (window.Worker) {
+				var OriginalWorker = window.Worker;
+				window.Worker = function(scriptURL, options) {
+					var rewrittenUrl = rewriteUrl(scriptURL);
+					var workerCode = [
+						'(function() {',
+						'  var CDN_RE = /^https?:\\/\\/openstatic\\.ys7\\.com\\/ezuikit_js\\/[^\\/]+\\/ezuikit_static\\/(.*)$/i;',
+						'  var LOCAL_BASE = "' + LOCAL_BASE.replace(/"/g, '\\"') + '";',
+						'  function rewriteUrl(url) {',
+						'    if (!url) return url;',
+						'    var m = String(url).match(CDN_RE);',
+						'    return m && m[1] ? LOCAL_BASE + m[1] : url;',
+						'  }',
+						'  var _importScripts = importScripts;',
+						'  importScripts = function() {',
+						'    var args = Array.prototype.slice.call(arguments);',
+						'    var rewritten = args.map(function(url) {',
+						'      return rewriteUrl(url);',
+						'    });',
+						'    return _importScripts.apply(self, rewritten);',
+						'  };',
+						'  importScripts("' + rewrittenUrl.replace(/"/g, '\\"') + '");',
+						'})();'
+					].join('\n');
+
+					var blob = new Blob([workerCode], { type: 'application/javascript' });
+					var blobUrl = URL.createObjectURL(blob);
+					var worker = new OriginalWorker(blobUrl, options);
+					worker.addEventListener('error', function() {
+						URL.revokeObjectURL(blobUrl);
+					});
+					return worker;
+				};
+			}
+
+			if (window.SharedWorker) {
+				var OriginalSharedWorker = window.SharedWorker;
+				window.SharedWorker = function(scriptURL, name, options) {
+					var rewrittenUrl = rewriteUrl(scriptURL);
+					return new OriginalSharedWorker(rewrittenUrl, name, options);
+				};
+			}
+		})();
+
+		var ezPlayers = {};
+		var ezConfig = {
+			accessToken: 'at.6eqyk4qc43hvm1ef9kgyw0lkcqhncphs-2ksfleqhs6-18h86s9-p9zn3fu6o',
+			decoderPath: './js/ezuikit_static'
+		};
+
+		function getContainerSize(containerId) {
+			var el = document.getElementById(containerId);
+			if (!el) return { width: 320, height: 180 };
+			var rect = el.getBoundingClientRect();
+			var width = Math.floor(rect.width || el.clientWidth || 0);
+			var height = Math.floor(rect.height || el.clientHeight || 0);
+			if (!width || !height) {
+				return { width: 320, height: 180 };
+			}
+			return { width: width, height: height };
+		}
+
+		function initEzPlayer(containerId, deviceId) {
+			if (typeof EZUIKit === 'undefined') return;
+			var size = getContainerSize(containerId);
+			ezPlayers[containerId] = new EZUIKit.EZUIKitPlayer({
+				id: containerId,
+				width: size.width,
+				height: size.height,
+				template: 'pcLive',
+				url: 'ezopen://open.ys7.com/' + deviceId + '/1.live',
+				accessToken: ezConfig.accessToken,
+				decoderPath: ezConfig.decoderPath,
+				autoplay: true,
+				audio: 1,
+				openSound: false
+			});
+		}
+
+		function initEzPlayers() {
+			initEzPlayer('playWind-1', 'BF8402231');
+			initEzPlayer('playWind-2', 'BF8402897');
+		}
+
+		function resizeEzPlayers() {
+			Object.keys(ezPlayers).forEach(function(containerId) {
+				var player = ezPlayers[containerId];
+				if (!player || typeof player.resize !== 'function') return;
+				var size = getContainerSize(containerId);
+				player.resize(size.width, size.height);
+			});
+		}
+
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', function() {
+				initEzPlayers();
+				window.setTimeout(resizeEzPlayers, 200);
+			});
+		} else {
+			initEzPlayers();
+			window.setTimeout(resizeEzPlayers, 200);
+		}
+
+		window.addEventListener('resize', function() {
+			window.setTimeout(resizeEzPlayers, 120);
+		});
 	</script>
 </body>
 </html>

@@ -1,51 +1,179 @@
 <!DOCTYPE html>
-  <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-    <script src="./js/ezuikit.js"></script>
-    <style>
-      html,body {
-        padding: 0;
-        margin: 0;
-        text-align: center;
-        background: #00000080;
-        overflow: hidden;
-        width: 100%;
-        height: 100%;
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EZUIKit Video Player Test</title>
+  <script src="./js/ezuikit.js"></script>
+  <style>
+    html, body {
+      padding: 0;
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+    #playWind {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div id="playWind"></div>
+  <script>
+    // Rewrite CDN URLs to local files
+    (function() {
+      var CDN_RE = /^https?:\/\/openstatic\.ys7\.com\/ezuikit_js\/[^/]+\/ezuikit_static\/(.*)$/i;
+      var LOCAL_BASE = new URL('./js/ezuikit_static/', location.href).toString();
+
+      function rewriteUrl(url) {
+        if (!url) return url;
+        var s = typeof url === 'string' ? url : (url.url || url.href || String(url));
+        var m = s.match(CDN_RE);
+        return m && m[1] ? LOCAL_BASE + m[1] : url;
       }
-      #playWind {
-        width: 100%;
-        height: 100%;
-        display: block;
+
+      // Patch fetch
+      if (window.fetch) {
+        var _fetch = window.fetch.bind(window);
+        window.fetch = function(input, init) {
+          return _fetch(rewriteUrl(input), init);
+        };
       }
-    </style>
-  </head>
-  <body>
-    <div id="playWind"></div>
-    <script>
-      var domain = "https://open.ys7.com";
-      var EZOPENDemo;
-      window.EZOPENDemo = EZOPENDemo;
-      var width = document.documentElement.clientWidth;
-      var height = document.documentElement.clientHeight;
-      const ezopenInit = () => {
-        EZOPENDemo = new EZUIKit.EZUIKitPlayer({
-          id: 'playWind',
-          width: width,
-          height: height,
-          template: "simple",
-          url: "ezopen://open.ys7.com/BF8402231/1.hd.live",
-          accessToken: "at.07sgtxis2w374txz416uih3c80sznzm8-6t7mbnheab-1he8m47-uprsshfan",
-          autoplay: 1,
-          audio: 0
-        });
+
+      // Patch XHR
+      if (window.XMLHttpRequest && window.XMLHttpRequest.prototype && window.XMLHttpRequest.prototype.open) {
+        var _open = window.XMLHttpRequest.prototype.open;
+        window.XMLHttpRequest.prototype.open = function(method, url) {
+          var args = Array.prototype.slice.call(arguments);
+          args[1] = rewriteUrl(url);
+          return _open.apply(this, args);
+        };
       }
-      ezopenInit();
-    </script>
-  </body>
-  
-  </html>
+
+      // Patch script injection
+      var _appendChild = Element.prototype.appendChild;
+      Element.prototype.appendChild = function(child) {
+        if (child && child.tagName && child.tagName.toUpperCase() === 'SCRIPT' && child.src) {
+          child.src = rewriteUrl(child.src);
+        }
+        return _appendChild.call(this, child);
+      };
+
+      // Patch Worker constructor to rewrite CDN URLs and intercept importScripts
+      if (window.Worker) {
+        var OriginalWorker = window.Worker;
+        window.Worker = function(scriptURL, options) {
+          var rewrittenUrl = rewriteUrl(scriptURL);
+          console.log('Worker URL rewritten:', scriptURL, '->', rewrittenUrl);
+          
+          // Always create a wrapper worker to intercept importScripts calls
+          // This ensures CDN URLs in importScripts are also rewritten
+          var workerCode = [
+            '(function() {',
+            '  // URL rewrite helper',
+            '  var CDN_RE = /^https?:\\/\\/openstatic\\.ys7\\.com\\/ezuikit_js\\/[^\\/]+\\/ezuikit_static\\/(.*)$/i;',
+            '  var LOCAL_BASE = "' + LOCAL_BASE.replace(/"/g, '\\"') + '";',
+            '  function rewriteUrl(url) {',
+            '    if (!url) return url;',
+            '    var m = String(url).match(CDN_RE);',
+            '    return m && m[1] ? LOCAL_BASE + m[1] : url;',
+            '  }',
+            '',
+            '  // Patch importScripts before loading the original script',
+            '  var _importScripts = importScripts;',
+            '  importScripts = function() {',
+            '    var args = Array.prototype.slice.call(arguments);',
+            '    var rewritten = args.map(function(url) {',
+            '      var newUrl = rewriteUrl(url);',
+            '      if (newUrl !== url) {',
+            '        console.log("[Worker] importScripts URL rewritten:", url, "->", newUrl);',
+            '      }',
+            '      return newUrl;',
+            '    });',
+            '    return _importScripts.apply(self, rewritten);',
+            '  };',
+            '',
+            '  // Load original worker script',
+            '  importScripts("' + rewrittenUrl.replace(/"/g, '\\"') + '");',
+            '})();'
+          ].join('\n');
+          
+          var blob = new Blob([workerCode], { type: 'application/javascript' });
+          var blobUrl = URL.createObjectURL(blob);
+          var worker = new OriginalWorker(blobUrl, options);
+          
+          // Clean up blob URL after worker is created
+          worker.addEventListener('error', function() {
+            URL.revokeObjectURL(blobUrl);
+          });
+          
+          return worker;
+        };
+      }
+
+      // Patch SharedWorker if available
+      if (window.SharedWorker) {
+        var OriginalSharedWorker = window.SharedWorker;
+        window.SharedWorker = function(scriptURL, name, options) {
+          var rewrittenUrl = rewriteUrl(scriptURL);
+          return new OriginalSharedWorker(rewrittenUrl, name, options);
+        };
+      }
+    })();
+
+    // Initialize player
+    function initPlayer() {
+      if (typeof EZUIKit === 'undefined') {
+        console.error('EZUIKit is not loaded');
+        return;
+      }
+
+      var width = window.innerWidth || document.documentElement.clientWidth;
+      var height = window.innerHeight || document.documentElement.clientHeight;
+
+      console.log('Initializing EZUIKit player...', { width, height });
+
+      window.EZOPENDemo = new EZUIKit.EZUIKitPlayer({
+        id: 'playWind',
+        width: width,
+        height: height,
+        template: 'pcLive',
+        url: 'ezopen://open.ys7.com/BF8402231/1.live',
+        accessToken: 'at.6eqyk4qc43hvm1ef9kgyw0lkcqhncphs-2ksfleqhs6-18h86s9-p9zn3fu6o',
+        decoderPath: './js/ezuikit_static',
+        autoplay: true,
+        audio: 1,
+        openSound: false,
+        handleError: function(error) {
+          console.error('EZUIKit Error:', error);
+          alert('Video playback error: ' + JSON.stringify(error));
+        },
+        handleSuccess: function() {
+          console.log('EZUIKit Success: Player initialized');
+        }
+      });
+    }
+
+    // Wait for DOM ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initPlayer);
+    } else {
+      setTimeout(initPlayer, 100);
+    }
+
+    // Handle window resize
+    window.addEventListener('resize', function() {
+      if (window.EZOPENDemo) {
+        var width = window.innerWidth || document.documentElement.clientWidth;
+        var height = window.innerHeight || document.documentElement.clientHeight;
+        window.EZOPENDemo.resize(width, height);
+      }
+    });
+  </script>
+</body>
+</html>
       
