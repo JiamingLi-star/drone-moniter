@@ -55,6 +55,91 @@ type GetVehicleInfoListResp struct {
 	Msg  string                `json:"msg"`
 }
 
+type AnalyticsSummaryReq struct {
+	Start string `form:"start,optional"`
+	End   string `form:"end,optional"`
+}
+
+type AnalyticsSummaryData struct {
+	TotalVehicles  int     `json:"totalVehicles"`
+	OnlineVehicles int     `json:"onlineVehicles"`
+	AvgSpeed       float64 `json:"avgSpeed"`
+	AvgBattery     float64 `json:"avgBattery"`
+	TotalMileage   float64 `json:"totalMileage"`
+	LastUpdated    string  `json:"lastUpdated"`
+}
+
+type AnalyticsSummaryResp struct {
+	Code string               `json:"code"`
+	Msg  string               `json:"msg"`
+	Data AnalyticsSummaryData `json:"data"`
+}
+
+type AnalyticsTimeSeriesReq struct {
+	Start  string `form:"start,optional"`
+	End    string `form:"end,optional"`
+	Window string `form:"window,optional"`
+}
+
+type TimeSeriesPoint struct {
+	Time  string  `json:"time"`
+	Value float64 `json:"value"`
+}
+
+type AnalyticsTimeSeriesData struct {
+	Speed   []TimeSeriesPoint `json:"speed"`
+	Battery []TimeSeriesPoint `json:"battery"`
+}
+
+type AnalyticsTimeSeriesResp struct {
+	Code string                  `json:"code"`
+	Msg  string                  `json:"msg"`
+	Data AnalyticsTimeSeriesData `json:"data"`
+}
+
+type AnalyticsParkReq struct {
+	Start string `form:"start,optional"`
+	End   string `form:"end,optional"`
+}
+
+type ParkStat struct {
+	ParkCode string `json:"parkCode"`
+	ParkName string `json:"parkName"`
+	Count    int    `json:"count"`
+}
+
+type AnalyticsParkResp struct {
+	Code string     `json:"code"`
+	Msg  string     `json:"msg"`
+	Data []ParkStat `json:"data"`
+}
+
+type GetVehicleBaseListReq struct {
+	EnterpriseCode string `json:"enterpriseCode"`
+}
+
+type VehicleBaseItem struct {
+	Vin              string  `json:"vin"`
+	VinId            string  `json:"vinId"`
+	VinCode          string  `json:"vinCode"`
+	CarryingCapacity float64 `json:"carryingCapacity"`
+	BatteryAge       int     `json:"batteryAge"`
+	VehicleAoi       string  `json:"vehicleAoi"`
+	ParkCode         string  `json:"parkCode"`
+	CityCode         string  `json:"cityCode"`
+	Address          string  `json:"address"`
+	EnduranceMileage float64 `json:"enduranceMileage"`
+	Interspace       float64 `json:"interspace"`
+	VinType          string  `json:"vinType"`
+	CabinetNum       int     `json:"cabinetNum"`
+}
+
+type GetVehicleBaseListResp struct {
+	Data []VehicleBaseItem `json:"data"`
+	Code string            `json:"code"`
+	Msg  string            `json:"msg"`
+}
+
 type GetVehicleInfoReq struct {
 	Vin string `form:"vin"`
 }

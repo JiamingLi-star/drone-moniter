@@ -1,0 +1,2 @@
+drone-stats-service/backups/*.lp filter=lfs diff=lfs merge=lfs -text
+drone-stats-service/backups/*.sql filter=lfs diff=lfs merge=lfs -text

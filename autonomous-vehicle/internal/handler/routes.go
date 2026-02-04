@@ -35,6 +35,21 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: HandleGetVehicleListHandler(serverCtx),
 			},
 			{
+				Method:  http.MethodGet,
+				Path:    "/vehicle/analytics/summary",
+				Handler: HandleVehicleAnalyticsSummaryHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/vehicle/analytics/timeseries",
+				Handler: HandleVehicleAnalyticsTimeSeriesHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/vehicle/analytics/park",
+				Handler: HandleVehicleAnalyticsParkHandler(serverCtx),
+			},
+			{
 				Method:  http.MethodPost,
 				Path:    "/vehicle/mileage_and_duration",
 				Handler: HandleGetMileageAndDurationHandler(serverCtx),

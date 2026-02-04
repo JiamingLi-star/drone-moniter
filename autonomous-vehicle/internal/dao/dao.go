@@ -139,3 +139,223 @@ func ExportVehicleRecordsToExcel(records []map[string]interface{}, filePath stri
 	}
 	return nil
 }
+
+func (d *InfluxDao) QueryDistinctVinCount(start, end time.Time) (int, error) {
+	query := fmt.Sprintf(`
+		from(bucket:"%s")
+		|> range(start: %s, stop: %s)
+		|> filter(fn: (r) => r._measurement == "vehicle_info")
+		|> keep(columns: ["vin"])
+		|> distinct(column: "vin")
+		|> count()
+	`, d.Bucket, start.Format(time.RFC3339), end.Format(time.RFC3339))
+
+	result, err := d.QueryAPI.Query(context.Background(), query)
+	if err != nil {
+		return 0, err
+	}
+	for result.Next() {
+		if v, ok := asInt(result.Record().Value()); ok {
+			return v, nil
+		}
+	}
+	return 0, result.Err()
+}
+
+func (d *InfluxDao) QueryOnlineCount(start, end time.Time) (int, error) {
+	query := fmt.Sprintf(`
+		from(bucket:"%s")
+		|> range(start: %s, stop: %s)
+		|> filter(fn: (r) => r._measurement == "vehicle_info" and r._field == "powerState")
+		|> group(columns: ["vin"])
+		|> last()
+		|> filter(fn: (r) => r._value == true)
+		|> count()
+	`, d.Bucket, start.Format(time.RFC3339), end.Format(time.RFC3339))
+
+	result, err := d.QueryAPI.Query(context.Background(), query)
+	if err != nil {
+		return 0, err
+	}
+	for result.Next() {
+		if v, ok := asInt(result.Record().Value()); ok {
+			return v, nil
+		}
+	}
+	return 0, result.Err()
+}
+
+func (d *InfluxDao) QueryMeanField(start, end time.Time, field string) (float64, error) {
+	query := fmt.Sprintf(`
+		from(bucket:"%s")
+		|> range(start: %s, stop: %s)
+		|> filter(fn: (r) => r._measurement == "vehicle_info" and r._field == "%s")
+		|> mean()
+	`, d.Bucket, start.Format(time.RFC3339), end.Format(time.RFC3339), field)
+
+	result, err := d.QueryAPI.Query(context.Background(), query)
+	if err != nil {
+		return 0, err
+	}
+	for result.Next() {
+		if v, ok := asFloat(result.Record().Value()); ok {
+			return v, nil
+		}
+	}
+	return 0, result.Err()
+}
+
+func (d *InfluxDao) QueryMeanSeries(start, end time.Time, window, field string) ([]types.TimeSeriesPoint, error) {
+	query := fmt.Sprintf(`
+		from(bucket:"%s")
+		|> range(start: %s, stop: %s)
+		|> filter(fn: (r) => r._measurement == "vehicle_info" and r._field == "%s")
+		|> aggregateWindow(every: %s, fn: mean, createEmpty: false)
+	`, d.Bucket, start.Format(time.RFC3339), end.Format(time.RFC3339), field, window)
+
+	result, err := d.QueryAPI.Query(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	series := make([]types.TimeSeriesPoint, 0)
+	for result.Next() {
+		t := result.Record().Time().UTC()
+		val, ok := asFloat(result.Record().Value())
+		if !ok {
+			continue
+		}
+		series = append(series, types.TimeSeriesPoint{
+			Time:  t.Format(time.RFC3339),
+			Value: val,
+		})
+	}
+	return series, result.Err()
+}
+
+func (d *InfluxDao) QueryMileageDeltaSum(start, end time.Time) (float64, error) {
+	firstQuery := fmt.Sprintf(`
+		from(bucket:"%s")
+		|> range(start: %s, stop: %s)
+		|> filter(fn: (r) => r._measurement == "vehicle_info" and r._field == "mile")
+		|> group(columns: ["vin"])
+		|> first()
+	`, d.Bucket, start.Format(time.RFC3339), end.Format(time.RFC3339))
+
+	lastQuery := fmt.Sprintf(`
+		from(bucket:"%s")
+		|> range(start: %s, stop: %s)
+		|> filter(fn: (r) => r._measurement == "vehicle_info" and r._field == "mile")
+		|> group(columns: ["vin"])
+		|> last()
+	`, d.Bucket, start.Format(time.RFC3339), end.Format(time.RFC3339))
+
+	firstVals := make(map[string]float64)
+	result, err := d.QueryAPI.Query(context.Background(), firstQuery)
+	if err != nil {
+		return 0, err
+	}
+	for result.Next() {
+		vin, _ := result.Record().ValueByKey("vin").(string)
+		val, ok := asFloat(result.Record().Value())
+		if vin != "" && ok {
+			firstVals[vin] = val
+		}
+	}
+	if err := result.Err(); err != nil {
+		return 0, err
+	}
+
+	lastVals := make(map[string]float64)
+	result, err = d.QueryAPI.Query(context.Background(), lastQuery)
+	if err != nil {
+		return 0, err
+	}
+	for result.Next() {
+		vin, _ := result.Record().ValueByKey("vin").(string)
+		val, ok := asFloat(result.Record().Value())
+		if vin != "" && ok {
+			lastVals[vin] = val
+		}
+	}
+	if err := result.Err(); err != nil {
+		return 0, err
+	}
+
+	total := 0.0
+	for vin, lastVal := range lastVals {
+		if firstVal, ok := firstVals[vin]; ok {
+			delta := lastVal - firstVal
+			if delta > 0 {
+				total += delta
+			}
+		}
+	}
+	return total, nil
+}
+
+func (d *InfluxDao) QueryParkCounts(start, end time.Time) ([]types.ParkStat, error) {
+	query := fmt.Sprintf(`
+		from(bucket:"%s")
+		|> range(start: %s, stop: %s)
+		|> filter(fn: (r) => r._measurement == "vehicle_info" and r._field == "speed")
+		|> group(columns: ["vin"])
+		|> last()
+	`, d.Bucket, start.Format(time.RFC3339), end.Format(time.RFC3339))
+
+	result, err := d.QueryAPI.Query(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+
+	counts := make(map[string]*types.ParkStat)
+	for result.Next() {
+		parkCode, _ := result.Record().ValueByKey("parkCode").(string)
+		parkName, _ := result.Record().ValueByKey("parkName").(string)
+		key := parkCode + "|" + parkName
+		stat, ok := counts[key]
+		if !ok {
+			stat = &types.ParkStat{ParkCode: parkCode, ParkName: parkName, Count: 0}
+			counts[key] = stat
+		}
+		stat.Count++
+	}
+	if err := result.Err(); err != nil {
+		return nil, err
+	}
+
+	stats := make([]types.ParkStat, 0, len(counts))
+	for _, stat := range counts {
+		stats = append(stats, *stat)
+	}
+	return stats, nil
+}
+
+func asFloat(v interface{}) (float64, bool) {
+	switch val := v.(type) {
+	case float64:
+		return val, true
+	case float32:
+		return float64(val), true
+	case int64:
+		return float64(val), true
+	case int:
+		return float64(val), true
+	case uint64:
+		return float64(val), true
+	default:
+		return 0, false
+	}
+}
+
+func asInt(v interface{}) (int, bool) {
+	switch val := v.(type) {
+	case int:
+		return val, true
+	case int64:
+		return int(val), true
+	case float64:
+		return int(val), true
+	default:
+		return 0, false
+	}
+}

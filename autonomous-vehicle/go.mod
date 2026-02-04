@@ -4,9 +4,13 @@ go 1.23.0
 
 toolchain go1.24.6
 
-require github.com/zeromicro/go-zero v1.8.5
+require (
+	github.com/go-sql-driver/mysql v1.9.3
+	github.com/zeromicro/go-zero v1.8.5
+)
 
 require (
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/influxdata/line-protocol v0.0.0-20200327222509-2487e7298839 // indirect
 	github.com/oapi-codegen/runtime v1.0.0 // indirect

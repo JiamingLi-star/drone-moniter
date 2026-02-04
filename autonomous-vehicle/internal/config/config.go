@@ -5,11 +5,13 @@ import "github.com/zeromicro/go-zero/rest"
 type Config struct {
 	rest.RestConf
 	InfluxDBConfig InfluxDB
+	MySQL          MySQL
 	XFrom          string // 新增
 	XVersion       string // 新增
 	TokenURL       string // 新增
 	ClientID       string // 新增
 	ClientSecret   string // 新增
+	EnterpriseCode string // 新增
 }
 
 type InfluxDB struct {
@@ -25,4 +27,8 @@ type InfluxDB struct {
 	Timeout         string
 	BatchSize       uint
 	FlushInterval   uint
+}
+
+type MySQL struct {
+	DataSource string
 }

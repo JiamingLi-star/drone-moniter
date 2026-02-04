@@ -95,14 +95,19 @@ func fetchVehicleList(ctx *svc.ServiceContext) ([]types.VehicleList, error) {
 	return listResp.Data, nil
 }
 
-// 拉取并保存单辆车信息（只保存在线车辆）
+// 拉取并保存单辆车信息（保存所有车辆，在线状态单独标记）
 func fetchAndSaveVehicleInfo(ctx *svc.ServiceContext, vin string) error {
 	logicInfo := logic.NewHandleGetVehicleInfoLogic(context.Background(), ctx)
 	infoResp, err := logicInfo.HandleGetVehicleInfo(&types.GetVehicleInfoReq{Vin: vin})
 	if err != nil {
 		return err
 	}
-	if infoResp.Data.Vin != "" && infoResp.Data.PowerState {
+	if infoResp.Data.Vin != "" {
+		if infoResp.Data.PowerState {
+			ctx.OnlineDrones.Store(infoResp.Data.Vin, time.Now())
+		} else {
+			ctx.OnlineDrones.Delete(infoResp.Data.Vin)
+		}
 		return ctx.Dao.SaveVehicleInfo(&infoResp.Data)
 	}
 	return nil

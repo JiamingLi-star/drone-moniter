@@ -5,6 +5,8 @@ let vehicleCache = [];
 let selectedVin = '';
 let speedChart;
 let batteryChart;
+let mapCentered = false;
+let vehicleListCache = [];
 
 function initMap() {
   vehicleMap = new AMap.Map('vehicle-map', {
@@ -83,6 +85,15 @@ function updateStatusCounts(vehicles) {
   $('#idle-vehicles').text(idle);
 }
 
+function normalizeVehicle(v) {
+  if (!v) return v;
+  return {
+    ...v,
+    parkName: v.parkName || v.parkname || '',
+    parkCode: v.parkCode || v.parkcode || ''
+  };
+}
+
 function renderVehicleList(vehicles) {
   const $list = $('#vehicle-list');
   $list.empty();
@@ -90,7 +101,8 @@ function renderVehicleList(vehicles) {
     $list.append('<div class="vehicle-item">暂无车辆数据</div>');
     return;
   }
-  vehicles.forEach(v => {
+  vehicles.forEach(raw => {
+    const v = normalizeVehicle(raw);
     const isActive = v.vin === selectedVin ? 'active' : '';
     const html = `
       <div class="vehicle-item ${isActive}" data-vin="${v.vin}">
@@ -111,20 +123,38 @@ function renderVehicleList(vehicles) {
   });
 }
 
+function buildParkListFromVehicles(list) {
+  const counts = new Map();
+  list.forEach(raw => {
+    const v = normalizeVehicle(raw);
+    const key = `${v.parkCode || '--'}|${v.parkName || '--'}`;
+    const cur = counts.get(key) || { parkCode: v.parkCode || '--', parkName: v.parkName || '--', count: 0 };
+    cur.count += 1;
+    counts.set(key, cur);
+  });
+  return Array.from(counts.values());
+}
+
 function renderParkList(stats) {
   const $list = $('#park-list');
   $list.empty();
-  if (!stats || stats.length === 0) {
+  const hasStats = stats && stats.length > 0;
+  const cleanedStats = hasStats ? stats : [];
+  const allEmpty = cleanedStats.length > 0 && cleanedStats.every(item => !item.parkName && !item.parkCode);
+  const finalStats = (!hasStats || allEmpty) ? buildParkListFromVehicles(vehicleListCache) : cleanedStats;
+
+  if (!finalStats || finalStats.length === 0) {
     $list.append('<div class="park-item"><span>暂无数据</span><span>0</span></div>');
     return;
   }
-  stats.forEach(item => {
+  finalStats.forEach(item => {
     const name = item.parkName || item.parkCode || '--';
     $list.append(`<div class="park-item"><span>${name}</span><span>${item.count}</span></div>`);
   });
 }
 
-function updateDetailPanel(v) {
+function updateDetailPanel(raw) {
+  const v = normalizeVehicle(raw);
   $('#detail-vin').text(v.vin || '--');
   $('#detail-mode').text(v.driveMode ?? '--');
   $('#detail-speed').text((v.speed ?? '--') + ' km/h');
@@ -140,7 +170,8 @@ function updateDetailPanel(v) {
 }
 
 function updateMapMarkers(vehicles) {
-  vehicles.forEach(v => {
+  vehicles.forEach(raw => {
+    const v = normalizeVehicle(raw);
     if (!v.position) return;
     const lng = v.position.lon;
     const lat = v.position.lat;
@@ -163,6 +194,14 @@ function updateMapMarkers(vehicles) {
       markers.set(id, marker);
     }
   });
+  if (!mapCentered && markers.size > 0) {
+    const first = markers.values().next().value;
+    if (first) {
+      vehicleMap.setCenter(first.getPosition());
+      vehicleMap.setZoom(14);
+      mapCentered = true;
+    }
+  }
 }
 
 function focusMarker(vehicle) {
@@ -200,19 +239,25 @@ function loadTimeSeries() {
 function loadVehicles() {
   return $.get('/vehicle/list').then(listRes => {
     const list = listRes.data || [];
+    vehicleListCache = list;
     const vins = list.map(v => v.vin);
     if (!vins.length) {
       vehicleCache = [];
       renderVehicleList([]);
       return;
     }
+    const fallback = () => loadVehiclesFallback(vins, list);
     return $.ajax({
       url: '/vehicle/info_list',
       method: 'POST',
       contentType: 'application/json',
       data: JSON.stringify({ vin: vins })
     }).done(infoRes => {
-      vehicleCache = infoRes.data || [];
+      if (!infoRes || infoRes.code !== '10000' || !Array.isArray(infoRes.data)) {
+        fallback();
+        return;
+      }
+      vehicleCache = infoRes.data.map(normalizeVehicle);
       updateStatusCounts(vehicleCache);
       renderVehicleList(vehicleCache);
       updateMapMarkers(vehicleCache);
@@ -223,7 +268,25 @@ function loadVehicles() {
         const selected = vehicleCache.find(v => v.vin === selectedVin);
         if (selected) updateDetailPanel(selected);
       }
-    });
+    }).fail(fallback);
+  });
+}
+
+function loadVehiclesFallback(vins, list) {
+  const requests = vins.map(vin =>
+    $.post(`/vehicle/info?vin=${encodeURIComponent(vin)}`)
+      .then(res => res.data, () => null)
+  );
+  Promise.all(requests).then(results => {
+    vehicleCache = results.filter(Boolean).map(normalizeVehicle);
+    updateStatusCounts(vehicleCache);
+    renderVehicleList(vehicleCache);
+    updateMapMarkers(vehicleCache);
+    renderParkList(buildParkListFromVehicles(list));
+    if (!selectedVin && vehicleCache.length) {
+      selectedVin = vehicleCache[0].vin;
+      updateDetailPanel(vehicleCache[0]);
+    }
   });
 }
 

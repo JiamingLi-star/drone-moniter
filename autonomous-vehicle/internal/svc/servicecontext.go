@@ -25,7 +25,7 @@ type ServiceContext struct {
 	Config   config.Config
 	WSHub    *websocket.Hub
 	Dao      *dao.InfluxDao
-	// MySQLDao *dao.MySQLDao  // MySQL功能暂未实现
+	MySQLDao *dao.MySQLDao
 
 	OnlineDrones sync.Map // key: uasID, value: time.Time
 
@@ -54,14 +54,14 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		Dao:    dao.NewInfluxDao(client, c.InfluxDBConfig.Org, c.InfluxDBConfig.Bucket),
 	}
 
-	// MySQL功能暂未实现，如需要可后续添加
-	// if c.MySQL.DataSource != "" {
-	// 	mdao, err := dao.NewMySQLDao(c.MySQL.DataSource)
-	// 	if err != nil {
-	// 		panic("MySQL connect error: " + err.Error())
-	// 	}
-	// 	ctx.MySQLDao = mdao
-	// }
+	// 初始化 MySQL（如果配置了 DataSource）
+	if c.MySQL.DataSource != "" {
+		mdao, err := dao.NewMySQLDao(c.MySQL.DataSource)
+		if err != nil {
+			panic("MySQL connect error: " + err.Error())
+		}
+		ctx.MySQLDao = mdao
+	}
 
 	// 启动定时清理协程
 	go func() {

@@ -182,6 +182,65 @@ type GetVehicleInfoListResp {
 	Msg  string                `json:"msg"`
 }
 
+type AnalyticsSummaryReq {
+	Start string `form:"start,optional"`
+	End   string `form:"end,optional"`
+}
+
+type AnalyticsSummaryData {
+	TotalVehicles  int     `json:"totalVehicles"`
+	OnlineVehicles int     `json:"onlineVehicles"`
+	AvgSpeed       float64 `json:"avgSpeed"`
+	AvgBattery     float64 `json:"avgBattery"`
+	TotalMileage   float64 `json:"totalMileage"`
+	LastUpdated    string  `json:"lastUpdated"`
+}
+
+type AnalyticsSummaryResp {
+	Code string               `json:"code"`
+	Msg  string               `json:"msg"`
+	Data AnalyticsSummaryData `json:"data"`
+}
+
+type AnalyticsTimeSeriesReq {
+	Start  string `form:"start,optional"`
+	End    string `form:"end,optional"`
+	Window string `form:"window,optional"`
+}
+
+type TimeSeriesPoint {
+	Time  string  `json:"time"`
+	Value float64 `json:"value"`
+}
+
+type AnalyticsTimeSeriesData {
+	Speed   []TimeSeriesPoint `json:"speed"`
+	Battery []TimeSeriesPoint `json:"battery"`
+}
+
+type AnalyticsTimeSeriesResp {
+	Code string                  `json:"code"`
+	Msg  string                  `json:"msg"`
+	Data AnalyticsTimeSeriesData `json:"data"`
+}
+
+type AnalyticsParkReq {
+	Start string `form:"start,optional"`
+	End   string `form:"end,optional"`
+}
+
+type ParkStat {
+	ParkCode string `json:"parkCode"`
+	ParkName string `json:"parkName"`
+	Count    int    `json:"count"`
+}
+
+type AnalyticsParkResp {
+	Code string     `json:"code"`
+	Msg  string     `json:"msg"`
+	Data []ParkStat `json:"data"`
+}
+
 service autonomousVehicle {
 	@handler HandleWebSocket
 	get /vehicle/ws
@@ -212,5 +271,14 @@ service autonomousVehicle {
 
 	@handler HandleGetVehicleInfoList	// 批量拉取车辆状态数据
 	post /vehicle/info_list (GetVehicleInfoListReq) returns (GetVehicleInfoListResp)
+
+	@handler HandleVehicleAnalyticsSummary // 车辆分析摘要
+	get /vehicle/analytics/summary (AnalyticsSummaryReq) returns (AnalyticsSummaryResp)
+
+	@handler HandleVehicleAnalyticsTimeSeries // 车辆分析时序
+	get /vehicle/analytics/timeseries (AnalyticsTimeSeriesReq) returns (AnalyticsTimeSeriesResp)
+
+	@handler HandleVehicleAnalyticsPark // 网格统计
+	get /vehicle/analytics/park (AnalyticsParkReq) returns (AnalyticsParkResp)
 }
 

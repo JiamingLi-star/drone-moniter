@@ -16,9 +16,13 @@ InfluxDBConfig:
   BatchSize: 100
   FlushInterval: 5
 
+MySQL:
+  DataSource: "admin:12345678@tcp(drone-mysql:3306)/autonomous_vehicle?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai"
+
 XFrom: "sysu"
 XVersion: "0.0.0"
 # TokenURL: "https://scapi.test.neolix.net/auth/oauth/token"
 TokenURL: "https://scapi.neolix.net/auth/oauth/token"
 ClientID: "zsdx"
 ClientSecret: "3ba51abd-56d9-4869-a7fb-057c8c7977e5"
+EnterpriseCode: "sysu"
